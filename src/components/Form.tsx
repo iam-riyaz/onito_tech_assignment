@@ -1,4 +1,6 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
+
+
 import { useForm, SubmitHandler, SubmitErrorHandler } from "react-hook-form";
 import { yupResolver } from "@hookform/resolvers/yup";
 import {
@@ -8,11 +10,18 @@ import {
   Typography,
   Grid,
   Box,
-  InputLabel,
-  FormControl,
+
   MenuItem,
+  Stepper,
+  Step,
+  StepLabel,
 } from "@mui/material";
-import { combinedSchema, firstPartSchema } from "../validation/FormValidation";
+import {  firstPartSchema, secondPartSchema } from "../validation/FormValidation";
+
+import { useDispatch } from "react-redux";
+import { addUser } from "../redux/slice";
+import { useSelector } from "react-redux";
+import { RootState } from "../redux/store";
 
 type FormValues = {
   name: string;
@@ -23,70 +32,123 @@ type FormValues = {
   idNumber:string;
 };
 
+type FormValues2={
+  address:string;
+  state:string;
+  city:string;
+  country:string;
+  pincode:number;
+}
+
 const sexType = ["Male", "Female"];
 const idType = ["Aadhar", "PAN"];
 
 export const FormComponent: React.FC = () => {
   const [showSecondPart,setShowSecondPart]= useState(false)
 
+  const [activeStep, setActiveStep] = useState(0);
+  const [userData,setUserData]= useState({})
+  const [completeFlag,setCompleteFlag] = useState(false)
+  const dispatch = useDispatch()
+  const users= useSelector((state:RootState)=>state.data.usersData)
+
+  const steps = ['Personal Details', 'Address Details',];
+
   const {
-    register,
-    handleSubmit,
-    formState: { errors },
-    setValue,
-    watch,
+    register: registerFirstPart,
+    handleSubmit: handleSubmitFirstPart,
+    formState: { errors: errorsFirstPart },
+    reset: resetFirstPart
   } = useForm<FormValues>({
     resolver: yupResolver(firstPartSchema) as any,
+    mode: "all",
   });
 
+  const {
+    register: registerSecondPart,
+    handleSubmit: handleSubmitSecondPart,
+    formState: { errors: errorsSecondPart },
+    reset: resetSecondPart
+  } = useForm<FormValues2>({
+    resolver: yupResolver(secondPartSchema) as any,
+    mode: "all",
+  });
 
-  const handleInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    setValue('idNumber', event.target.value.toUpperCase());
-  };
+ 
+
+
+
 
   const onSubmitFirstPart: SubmitHandler<FormValues> = (data) => {
-    // // Do any additional logic for the first part submission
-    // // Set values for the second part fields based on the first part
-    // setValue("address", ""); // Set default value for the address field
-    // setValue("state", "");
-    // setValue("city", "");
-    // setValue("pincode", "");
 
-    console.log("Form submitted successfully:", data);
+    setActiveStep((pre)=>pre+1)
+    setShowSecondPart(true)
+    setUserData(data)
+    resetFirstPart()
 
-    // if(Object.keys(errors).length === 0 && watch('name') && watch('sex') && watch('age') && watch('mobile')){
-    //     setShowSecondPart(true)
-    // }
   };
 
-  const onSubmitSecondPart: SubmitHandler<FormValues> = (data) => {
-    // Handle the final form submission
-    console.log("Form submitted successfully:", data);
+  const onSubmitSecondPart: SubmitHandler<FormValues2> = (data) => {
+
+     setUserData((preData)=>({...preData,...data}))
+    resetSecondPart()
+    setCompleteFlag(true)
+    setShowSecondPart(false)
+    setActiveStep(0)
+    const newUser:any={...userData, ...data}
+    dispatch(addUser(newUser))
+
+    alert("User Created successfully")
+    
   };
 
   const onError: SubmitErrorHandler<FormValues> = (errors) => {
     console.error("Form validation failed:", errors);
   };
 
-//   const showSecondPart =
-//     Object.keys(errors).length === 0 &&
-//     watch("name") &&
-//     watch("sex") &&
-//     watch("age") &&
-//     watch("mobile");
+  const onError2: SubmitErrorHandler<FormValues2> = (errors) => {
+    console.error("Form validation failed:", errors);
+  };
+
+
+  useEffect(() => {
+    if(completeFlag)
+    {
+      console.log({userData})
+      setCompleteFlag(false)
+      console.log({users})
+    }
+  },[completeFlag])
+
+
+
+
 
   return (
-    <Container>
-      {!showSecondPart?<form
-        onSubmit={handleSubmit(
+    <div>
+      
+    <Container sx={{backgroundColor:"white", padding:"20px", borderRadius:"10px"}}>
+
+      <div>
+      <Stepper sx={{ height:"90px"}} activeStep={activeStep}>
+        {steps.map((label, index) => (
+          <Step  key={index}>
+            <StepLabel >{label}</StepLabel>
+          </Step>
+        ))}
+      </Stepper>
+      
+      {!showSecondPart?
+      <form
+        onSubmit={handleSubmitFirstPart(
            onSubmitFirstPart,
           onError
         )}
       >
         <Typography
-          variant="h4"
+          variant="h6"
           gutterBottom
-          sx={{ textDecoration: "underline" }}
+          sx={{ textDecoration: "underline" ,paddingBottom:"10px" }}
         >
           Personal Details
         </Typography>
@@ -96,9 +158,9 @@ export const FormComponent: React.FC = () => {
               required
               fullWidth
               label="Enter Name"
-              {...register("name")}
-              error={!!errors.name}
-              helperText={errors.name?.message}
+              {...registerFirstPart("name")}
+              error={!!errorsFirstPart.name}
+              helperText={errorsFirstPart.name?.message}
             />
           </Grid>
           <Grid item xs={3}>
@@ -106,10 +168,11 @@ export const FormComponent: React.FC = () => {
               fullWidth
               required
               label="Age"
-              type="number"
-              {...register("age")}
-              error={!!errors.age}
-              helperText={errors.age?.message}
+              type="Number"
+              
+              {...registerFirstPart("age")}
+              error={!!errorsFirstPart.age}
+              helperText={errorsFirstPart.age?.message}
             />
           </Grid>
           <Grid item xs={3}>
@@ -118,9 +181,9 @@ export const FormComponent: React.FC = () => {
               fullWidth
               label="Sex"
               select
-              {...register("sex")}
-              error={!!errors.sex}
-              helperText={errors.sex?.message}
+              {...registerFirstPart("sex")}
+              error={!!errorsFirstPart.sex}
+              helperText={errorsFirstPart.sex?.message}
             >
               {sexType.map((option) => (
                 <MenuItem key={option} value={option}>
@@ -134,14 +197,15 @@ export const FormComponent: React.FC = () => {
             <TextField
               fullWidth
               label="Mobile"
-              {...register("mobile")}
-              error={!!errors.mobile}
-              helperText={errors.mobile?.message}
+              type="number"
+              {...registerFirstPart("mobile")}
+              error={!!errorsFirstPart.mobile}
+              helperText={errorsFirstPart.mobile?.message}
             />
           </Grid>
           <Grid item xs={3}>
-            <TextField fullWidth select label="Govt Issued ID Type" {...register("idType")} error={!!errors.idType}
-              helperText={errors.idType?.message}>
+            <TextField fullWidth select label="Govt Issued ID Type" {...registerFirstPart("idType")} error={!!errorsFirstPart.idType}
+              helperText={errorsFirstPart.idType?.message}>
               {idType.map((option) => (
                 <MenuItem key={option} value={option}>
                   {option}
@@ -150,8 +214,8 @@ export const FormComponent: React.FC = () => {
             </TextField>
           </Grid>
           <Grid item xs={4}>
-            <TextField  fullWidth label="ID Number" {...register("idNumber")} error={!!errors.idNumber}
-              helperText={errors.idNumber?.message} />
+            <TextField  fullWidth label="ID Number" {...registerFirstPart("idNumber")} error={!!errorsFirstPart.idNumber}
+              helperText={errorsFirstPart.idNumber?.message} />
           </Grid>
         </Grid>
         <Box mt={2}>
@@ -160,36 +224,66 @@ export const FormComponent: React.FC = () => {
           </Button>
         </Box>
       </form>:
-      <form>
+      <form onSubmit={handleSubmitSecondPart(onSubmitSecondPart,onError2)} >
         <Typography
-          variant="h4"
+          variant="h6"
           gutterBottom
-          sx={{ textDecoration: "underline" }}
+          sx={{ textDecoration: "underline",paddingBottom:"10px" }}
         >
           Address Details
         </Typography>
         <Grid container spacing={2}>
             <Grid item xs={6} >
-                <TextField fullWidth label="Address"/>
+                <TextField
+                {...registerSecondPart("address")}
+                error={!!errorsSecondPart.address}
+              helperText={errorsSecondPart.address?.message}
+                
+                fullWidth label="Address"/>
 
             </Grid>
             <Grid item xs={3}>
-             <TextField fullWidth label="State"/>
+             <TextField
+              {...registerSecondPart("state")}
+              error={!!errorsSecondPart.state}
+            helperText={errorsSecondPart.state?.message}
+             fullWidth label="State"/>
             </Grid>
             <Grid item xs={3}>
-                <TextField fullWidth label="City"/>
+                <TextField
+                 {...registerSecondPart("city")}
+                 error={!!errorsSecondPart.city}
+               helperText={errorsSecondPart.city?.message}
+                fullWidth label="City"/>
 
             </Grid>
             <Grid item xs={5}>
-                
+                <TextField
+                 {...registerSecondPart("country")}
+                 error={!!errorsSecondPart.country}
+               helperText={errorsSecondPart.country?.message}
+                fullWidth label="Country"/>
 
+            </Grid>
+            <Grid item xs={3}>
+              <TextField
+               {...registerSecondPart("pincode")}
+               error={!!errorsSecondPart.pincode}
+             helperText={errorsSecondPart.pincode?.message}
+              fullWidth label="pincode" type="number"/>
             </Grid>
 
         </Grid>
+        <Box mt={2}>
+          <Button type="submit" variant="contained" color="primary">
+            Submit
+          </Button>
+        </Box>
 
         </form>}
 
-      
+        </div>
     </Container>
+    </div>
   );
 };
